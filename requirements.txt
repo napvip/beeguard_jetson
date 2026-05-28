@@ -1,0 +1,18 @@
+# BeeGuard Jetson Nano — Dependencies
+# Cài trên Jetson Nano sau khi đã cài PyTorch + torchvision từ NVIDIA wheel.
+
+# Core
+opencv-python>=4.1
+numpy>=1.19
+Pillow>=8.0
+pyserial>=3.5
+
+# Deep Learning
+# torch        ← CÀI TỪ NVIDIA WHEEL, KHÔNG CÀI TỪ PIP
+# torchvision  ← BUILD TỪ SOURCE (xem HUONG_DAN.md)
+ultralytics>=8.3.0
+
+# Firebase + remote control
+python-dotenv>=0.19
+requests>=2.25
+google-auth>=2.0
