@@ -50,11 +50,11 @@ class HeadlessTracker:
         self.tracker = TrackingEngine()
 
         # Firebase
-        DEVICE_ID = os.environ.get("DEVICE_ID", "TRK-VUON001")
+        self.device_id = os.environ.get("DEVICE_ID", "TRK-VUON001")
         DEVICE_NAME = os.environ.get("DEVICE_NAME", "Hornet Tracker Jetson")
         DB_URL = os.environ.get("DB_URL",
             "https://doan-hotronuoiong-default-rtdb.asia-southeast1.firebasedatabase.app")
-        self.alert_sender = FirebaseAlertSender(DEVICE_ID, DB_URL, DEVICE_NAME)
+        self.alert_sender = FirebaseAlertSender(self.device_id, DB_URL, DEVICE_NAME)
 
         self._last_heartbeat = 0.0
         self._last_state_push = 0.0
@@ -67,6 +67,9 @@ class HeadlessTracker:
     def setup(self):
         """Initialize all hardware. Returns True if ready to run."""
         log("=== BeeGuard Jetson Nano ===")
+
+        # 0. Generate QR Code if not exists
+        self._generate_qr_code()
 
         # 1. Load AI model
         model_path = self._find_model()
@@ -347,6 +350,29 @@ class HeadlessTracker:
             args=(sensor_dict,),
             daemon=True,
         ).start()
+
+    def _generate_qr_code(self):
+        """Generate device ID QR code if it doesn't already exist."""
+        try:
+            import qrcode
+            qr_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr_codes")
+            if not os.path.exists(qr_dir):
+                os.makedirs(qr_dir)
+            qr_path = os.path.join(qr_dir, f"{self.device_id}.png")
+            if not os.path.exists(qr_path):
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_H,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(self.device_id)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                img.save(qr_path)
+                log(f"Generated QR code for device {self.device_id} at {qr_path}")
+        except Exception as e:
+            log(f"Failed to generate QR code: {e}")
 
     # ======================== Shutdown ========================
 
