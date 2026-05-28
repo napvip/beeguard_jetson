@@ -31,9 +31,9 @@ _SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "servic
 _PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "doan-hotronuoiong")
 
 # Cloudinary config
-_CLOUDINARY_CLOUD = os.environ.get("CLOUDINARY_CLOUD_NAME", "dle6cwujy")
-_CLOUDINARY_KEY   = os.environ.get("CLOUDINARY_API_KEY", "218722167172581")
-_CLOUDINARY_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "Aafml04NmrEcGuYbxDmhWBfDHOw")
+_CLOUDINARY_CLOUD = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+_CLOUDINARY_KEY   = os.environ.get("CLOUDINARY_API_KEY", "")
+_CLOUDINARY_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
 
 
 def _load_credentials():
