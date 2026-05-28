@@ -352,27 +352,105 @@ class HeadlessTracker:
         ).start()
 
     def _generate_qr_code(self):
-        """Generate device ID QR code if it doesn't already exist."""
+        """Generate device ID QR code card if it doesn't already exist."""
         try:
             import qrcode
+            import json
+            from PIL import Image, ImageDraw, ImageFont
+            
             qr_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr_codes")
             if not os.path.exists(qr_dir):
                 os.makedirs(qr_dir)
+                
             qr_path = os.path.join(qr_dir, f"{self.device_id}.png")
             if not os.path.exists(qr_path):
+                device_name = os.environ.get("DEVICE_NAME", "Hornet Tracker Jetson")
+                
+                # 1. Card proportions 420x580 px
+                width, height = 420, 580
+                card_img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
+                draw = ImageDraw.Draw(card_img)
+                
+                # 2. Draw card background bo góc màu xám sáng
+                card_color = (240, 241, 243, 255)
+                draw.rounded_rectangle(
+                    [(0, 0), (width - 1, height - 1)],
+                    radius=30,
+                    fill=card_color
+                )
+                
+                # 3. Generate QR Code with JSON data
+                qr_data = json.dumps({
+                    "type": "beeguard_tracker",
+                    "device_id": self.device_id,
+                    "device_name": device_name
+                }, separators=(',', ':'), ensure_ascii=False)
+                
                 qr = qrcode.QRCode(
                     version=1,
                     error_correction=qrcode.constants.ERROR_CORRECT_H,
                     box_size=10,
-                    border=4,
+                    border=1,
                 )
-                qr.add_data(self.device_id)
+                qr.add_data(qr_data)
                 qr.make(fit=True)
-                img = qr.make_image(fill_color="black", back_color="white")
-                img.save(qr_path)
-                log(f"Generated QR code for device {self.device_id} at {qr_path}")
+                
+                qr_pil = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
+                qr_size = 250
+                qr_pil = qr_pil.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                
+                # Paste QR in the center horizontally
+                qr_x = (width - qr_size) // 2
+                qr_y = 45
+                card_img.paste(qr_pil, (qr_x, qr_y), qr_pil)
+                
+                # Helper to fetch font
+                def get_font(font_name, size, bold=False):
+                    paths = []
+                    if sys.platform == "win32":
+                        paths = [
+                            f"C:\\Windows\\Fonts\\{font_name}b.ttf" if bold else f"C:\\Windows\\Fonts\\{font_name}.ttf",
+                            "C:\\Windows\\Fonts\\arialbd.ttf" if bold else "C:\\Windows\\Fonts\\arial.ttf"
+                        ]
+                    else:
+                        paths = [
+                            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf" if bold else "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+                        ]
+                    for path in paths:
+                        if os.path.exists(path):
+                            try:
+                                return ImageFont.truetype(path, size)
+                            except Exception:
+                                pass
+                    return ImageFont.load_default()
+                
+                # 4. Draw texts
+                font_family = "segoeui" if sys.platform == "win32" else "DejaVuSans"
+                title_font = get_font(font_family, 24, bold=True)
+                id_font = get_font(font_family, 18, bold=False)
+                sub_font = get_font(font_family, 15, bold=False)
+                footer_font = get_font(font_family, 13, bold=False)
+                
+                color_title = (15, 23, 42, 255)
+                color_muted = (71, 85, 105, 255)
+                color_light = (148, 163, 184, 255)
+                
+                def draw_centered_text(text, y, font, color):
+                    w = draw.textlength(text, font=font)
+                    x = (width - w) // 2
+                    draw.text((x, y), text, font=font, fill=color)
+                
+                draw_centered_text(device_name, 320, title_font, color_title)
+                draw_centered_text(self.device_id, 370, id_font, color_muted)
+                draw_centered_text("Thùng ong: 1", 415, sub_font, color_muted)
+                draw_centered_text("BeeGuard Tracking System", 465, footer_font, color_light)
+                
+                # Save
+                card_img.convert("RGB").save(qr_path, "PNG")
+                log(f"Generated complete QR card at {qr_path}")
         except Exception as e:
-            log(f"Failed to generate QR code: {e}")
+            log(f"Failed to generate QR card: {e}")
 
     # ======================== Shutdown ========================
 
