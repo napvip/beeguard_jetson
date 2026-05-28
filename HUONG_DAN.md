@@ -84,7 +84,7 @@ Kết quả phải hiện `Cuda compilation tools, release 10.2`.
 
 ```bash
 cd ~
-git clone https://github.com/napvip/tracking-v11.git beeguard
+git clone https://github.com/napvip/beeguard_jetson.git beeguard
 cd beeguard
 ```
 
