@@ -2,7 +2,7 @@
 # Cài trên Jetson Nano sau khi đã cài PyTorch + torchvision từ NVIDIA wheel.
 
 # Core
-opencv-python>=4.1
+# opencv-python>=4.1  # DÙNG OpenCV CỦA HỆ THỐNG JETSON (qua --system-site-packages)
 numpy>=1.19
 Pillow>=8.0
 pyserial>=3.5
