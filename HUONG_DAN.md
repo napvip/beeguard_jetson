@@ -191,7 +191,7 @@ pip install -r requirements.txt
 ### 6.1 Thực hiện export trên máy tính Windows (PowerShell)
 Mở PowerShell trên máy tính Windows và chạy:
 ```powershell
-yolo export model="C:\Users\16toa\Downloads\tracking_v11\model\best.pt" format=onnx imgsz=320 opset=12
+yolo export model="C:\Users\16toa\Downloads\tracking_v11\model\best.pt" format=onnx imgsz=320 opset=11 simplify=False
 ```
 Sau khi chạy xong, bạn sẽ thấy file: `C:\Users\16toa\Downloads\tracking_v11\model\best.onnx`.
 
