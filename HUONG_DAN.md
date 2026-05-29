@@ -159,6 +159,9 @@ pip install torch-1.10.0-cp36-cp36m-linux_aarch64.whl
 
 ### 5.3 Cài torchvision từ source
 ```bash
+# Cài đặt Pillow 8.4.0 (bản cuối cùng tương thích Python 3.6 của Jetson) để tránh lỗi cú pháp Pillow mới
+pip install Pillow==8.4.0
+
 sudo apt install -y libjpeg-dev zlib1g-dev libpython3-dev \
      libavcodec-dev libavformat-dev libswscale-dev
 git clone --branch v0.11.1 https://github.com/pytorch/vision torchvision
