@@ -3,7 +3,7 @@
 
 # Core
 # opencv-python>=4.1  # DÙNG OpenCV CỦA HỆ THỐNG JETSON (đã bật --system-site-packages)
-numpy>=1.19
+# numpy>=1.19         # DÙNG numpy CÓ SẴN TRÊN HỆ THỐNG JETSON (tránh pip tự compile từ source mất 1 tiếng)
 Pillow>=8.0
 pyserial>=3.5
 
