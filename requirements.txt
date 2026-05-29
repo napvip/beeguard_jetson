@@ -17,5 +17,5 @@ python-dotenv>=0.19
 requests>=2.25
 google-auth>=2.0
 
-# QR Code Generation (Cài phiên bản tương thích Python 3.6)
-qrcode==7.4.2
+# QR Code Generation (Cài phiên bản tương thích Python 3.6 - Bản 7.3.1 là bản cao nhất hỗ trợ Python 3.6)
+qrcode==7.3.1
