@@ -172,9 +172,9 @@ cd ~/beeguard
 
 ### 5.4 Kiểm tra PyTorch + CUDA
 ```bash
-python3 -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+python3 -c "import torch; import torchvision; print('PyTorch:', torch.__version__, '| Torchvision:', torchvision.__version__, '| CUDA:', torch.cuda.is_available())"
 ```
-Kết quả phải là: `1.10.0 True`
+Kết quả phải là: `PyTorch: 1.10.0 | Torchvision: 0.11.0... | CUDA: True`
 
 ### 5.5 Cài các thư viện còn lại
 ```bash
