@@ -6,6 +6,7 @@ import json
 import hashlib
 import threading
 import requests
+from typing import Union, Optional
 
 try:
     from dotenv import load_dotenv
@@ -58,7 +59,7 @@ def _load_credentials():
 _credentials = _load_credentials()
 
 
-def upload_detection_image(image_bytes: bytes) -> str | None:
+def upload_detection_image(image_bytes: bytes) -> Optional[str]:
     """Upload ảnh detection (JPEG bytes) lên Cloudinary, trả về secure URL hoặc None."""
     try:
         ts = int(time.time())
@@ -87,7 +88,7 @@ def upload_detection_image(image_bytes: bytes) -> str | None:
     return None
 
 
-def _get_access_token() -> str | None:
+def _get_access_token() -> Optional[str]:
     """Lấy OAuth2 access token, tự refresh khi hết hạn."""
     global _credentials
     if _credentials is None:
@@ -135,7 +136,7 @@ class FirebaseAlertSender:
         except Exception as e:
             print(f"[Firebase] Loi khi lay thong tin device: {e}")
 
-    def _fetch_fcm_token(self) -> str | None:
+    def _fetch_fcm_token(self) -> Optional[str]:
         """Lấy FCM token của owner từ RTDB."""
         if not self._owner_uid:
             return None
@@ -200,7 +201,7 @@ class FirebaseAlertSender:
             return False
 
     def send_hornet_alert(self, detection_count: int, confidence: float,
-                          image_bytes: bytes | None = None) -> bool:
+                          image_bytes: Optional[bytes] = None) -> bool:
         now = time.time()
         if now - self._last_alert_time < self.ALERT_COOLDOWN:
             return False
