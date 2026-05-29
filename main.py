@@ -105,9 +105,9 @@ class HeadlessTracker:
         return True
 
     def _find_model(self):
-        """Find model file: prefer .engine, then .pt, then .onnx."""
+        """Find model file: prefer .engine, then .onnx, then .pt."""
         model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
-        for ext in [".engine", ".pt", ".onnx"]:
+        for ext in [".engine", ".onnx", ".pt"]:
             for f in os.listdir(model_dir) if os.path.isdir(model_dir) else []:
                 if f.endswith(ext):
                     return os.path.join(model_dir, f)
@@ -397,7 +397,11 @@ class HeadlessTracker:
                 
                 qr_pil = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
                 qr_size = 250
-                qr_pil = qr_pil.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                try:
+                    resample_filter = Image.Resampling.LANCZOS
+                except AttributeError:
+                    resample_filter = Image.ANTIALIAS
+                qr_pil = qr_pil.resize((qr_size, qr_size), resample_filter)
                 
                 # Paste QR in the center horizontally
                 qr_x = (width - qr_size) // 2
