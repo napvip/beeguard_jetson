@@ -148,8 +148,8 @@ pip install --upgrade pip
 
 ### 5.2 Cài PyTorch cho Jetson Nano
 ```bash
-# Cài đặt OpenMPI (bắt buộc để load PyTorch)
-sudo apt update && sudo apt install -y libopenmpi-dev
+# Cài đặt các thư viện toán học và OpenMPI (bắt buộc để load PyTorch)
+sudo apt update && sudo apt install -y libopenmpi-dev libopenblas-dev liblapack-dev libblas-dev
 
 # Tải PyTorch 1.10 (build sẵn cho JetPack 4.6)
 wget https://nvidia.box.com/shared/static/fjtbno0vpo676a25cgvuqc1wty0fkkg6.whl \
