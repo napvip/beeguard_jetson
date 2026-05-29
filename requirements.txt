@@ -2,7 +2,7 @@
 # Cài trên Jetson Nano sau khi đã cài PyTorch + torchvision từ NVIDIA wheel.
 
 # Core
-# opencv-python>=4.1  # DÙNG OpenCV CỦA HỆ THỐNG JETSON (qua --system-site-packages)
+# opencv-python>=4.1  # DÙNG OpenCV CỦA HỆ THỐNG JETSON (đã bật --system-site-packages)
 numpy>=1.19
 Pillow>=8.0
 pyserial>=3.5
@@ -10,12 +10,12 @@ pyserial>=3.5
 # Deep Learning
 # torch        ← CÀI TỪ NVIDIA WHEEL, KHÔNG CÀI TỪ PIP
 # torchvision  ← BUILD TỪ SOURCE (xem HUONG_DAN.md)
-ultralytics>=8.3.0
+# ultralytics  ← DÙNG DUAL-MODE OpenCV DNN ONNX (Không cần cài trên Jetson Nano Python 3.6!)
 
 # Firebase + remote control
 python-dotenv>=0.19
 requests>=2.25
 google-auth>=2.0
 
-# QR Code Generation
-qrcode>=8.0
+# QR Code Generation (Cài phiên bản tương thích Python 3.6)
+qrcode==7.4.2

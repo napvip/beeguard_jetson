@@ -184,23 +184,31 @@ pip install -r requirements.txt
 
 ---
 
-## Bước 6: Export model TensorRT
+## Bước 6: Export model sang ONNX trên máy tính và chép sang Jetson
 
-> Bước này mất 15-30 phút. Chỉ cần làm 1 lần.
+> Vì Jetson Nano chạy Python 3.6 không hỗ trợ bộ cài `ultralytics`, chúng ta sẽ export model sang file `.onnx` trên **máy tính Windows** và chép sang Jetson để chạy bằng OpenCV DNN cực mượt!
 
-```bash
-cd ~/beeguard
-source venv/bin/activate
-
-# Export model sang TensorRT FP16 với inference size 320
-yolo export model=model/best.pt format=engine device=0 half=True imgsz=320
+### 6.1 Thực hiện export trên máy tính Windows (PowerShell)
+Mở PowerShell trên máy tính Windows và chạy:
+```powershell
+yolo export model="C:\Users\16toa\Downloads\tracking_v11\model\best.pt" format=onnx imgsz=320 half=True opset=12
 ```
+Sau khi chạy xong, bạn sẽ thấy file: `C:\Users\16toa\Downloads\tracking_v11\model\best.onnx`.
 
-Sau khi xong, kiểm tra:
-```bash
-ls -la model/
+### 6.2 Chép file `best.onnx` sang Jetson Nano
+Sử dụng SCP hoặc USB để chép file `best.onnx` vào thư mục `~/beeguard/model/` trên Jetson.
+
+Ví dụ dùng SCP (chạy trên PowerShell máy tính Windows):
+```powershell
+scp "C:\Users\16toa\Downloads\tracking_v11\model\best.onnx" viettoan@<IP_JETSON>:~/beeguard/model/
 ```
-Phải thấy file `best.engine`.
+Thay `<IP_JETSON>` bằng IP thực tế của Jetson Nano.
+
+### 6.3 Kiểm tra trên Jetson
+```bash
+ls -la ~/beeguard/model/
+```
+Phải thấy file `best.onnx`.
 
 ---
 
@@ -215,8 +223,8 @@ python3 main.py
 Kết quả kỳ vọng:
 ```
 [HH:MM:SS] === BeeGuard Jetson Nano ===
-[HH:MM:SS] Loading model: best.engine
-[HH:MM:SS] Model: Loaded best.engine on CUDA — 1 class(es)
+[HH:MM:SS] Loading model: best.onnx
+[HH:MM:SS] Model: Loaded best.onnx on OpenCV DNN (CUDA)
 [HH:MM:SS] Camera opened: 640x480
 [HH:MM:SS] ESP32: connected to /dev/ttyUSB0
 [HH:MM:SS] Tracking auto-enabled
