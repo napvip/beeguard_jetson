@@ -178,6 +178,7 @@ Kết quả phải là: `PyTorch: 1.10.0 | Torchvision: 0.11.0... | CUDA: True`
 
 ### 5.5 Cài các thư viện còn lại
 ```bash
+# Cài đặt các thư viện còn lại (opencv-python đã được tắt trong requirements.txt để dùng bản OpenCV tăng tốc phần cứng có sẵn của Jetson)
 pip install -r requirements.txt
 ```
 
