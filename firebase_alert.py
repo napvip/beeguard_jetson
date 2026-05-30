@@ -213,7 +213,7 @@ class FirebaseAlertSender:
 
         if not self._owner_uid:
             print(f"[Firebase] Bo qua alert: device '{self.device_id}' chua duoc lien ket voi tai khoan nao.")
-            print(f"[Firebase] -> Hay quet QR cua device nay tren app BeeGuard truoc.")
+            print(f"[Firebase] -> Hay them/lien ket device ID nay tren web BeeGuard truoc.")
             return False
 
         # Upload ảnh detection lên Cloudinary (nếu có)

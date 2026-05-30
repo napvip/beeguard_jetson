@@ -6,12 +6,13 @@ Designed for Jetson Nano: auto-start via systemd, control via Firebase app.
 
 Camera: Logitech C310 USB (OpenCV V4L2)
 ESP32: USB Serial (auto-detect /dev/ttyUSB*)
-Model: TensorRT .engine (FP16, 320px)
+Model: ONNX Runtime (CUDA, .onnx, 320px) — chạy được trên Python 3.6 của Jetson
 """
 
 import os
 import sys
 import time
+import uuid
 import signal
 import threading
 import cv2
@@ -50,7 +51,7 @@ class HeadlessTracker:
         self.tracker = TrackingEngine()
 
         # Firebase
-        self.device_id = os.environ.get("DEVICE_ID", "TRK-VUON001")
+        self.device_id = self._resolve_device_id()
         DEVICE_NAME = os.environ.get("DEVICE_NAME", "Hornet Tracker Jetson")
         DB_URL = os.environ.get("DB_URL",
             "https://doan-hotronuoiong-default-rtdb.asia-southeast1.firebasedatabase.app")
@@ -62,14 +63,46 @@ class HeadlessTracker:
         # Sensor callback: ESP32 → Serial → Firebase
         self.servo.on_sensor_data = self._on_sensor_data
 
+    def _resolve_device_id(self):
+        """Trả về device_id DUY NHẤT, ổn định cho riêng máy này.
+
+        Thứ tự ưu tiên:
+        1. Biến môi trường DEVICE_ID (nếu được đặt rõ ràng, không rỗng).
+        2. ID đã lưu trong file device_id.txt (giữ nguyên qua các lần khởi động).
+        3. Sinh mới TRK-xxxxxxxx (8 ký tự hex) rồi lưu lại.
+
+        Nhờ vậy mỗi thiết bị (PC Windows, Jetson...) tự có ID riêng, không trùng nhau.
+        Web sẽ đọc ID này từ Firebase và tự tạo mã QR để app quét.
+        """
+        env_id = (os.environ.get("DEVICE_ID") or "").strip()
+        if env_id:
+            return env_id
+
+        id_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "device_id.txt")
+        try:
+            if os.path.exists(id_file):
+                with open(id_file, "r") as f:
+                    saved = f.read().strip()
+                if saved:
+                    return saved
+        except Exception as e:
+            log(f"Khong doc duoc device_id.txt: {e}")
+
+        new_id = "TRK-" + uuid.uuid4().hex[:8].upper()
+        try:
+            with open(id_file, "w") as f:
+                f.write(new_id)
+            log(f"Da sinh device_id moi: {new_id} (luu tai device_id.txt)")
+        except Exception as e:
+            log(f"Khong luu duoc device_id.txt: {e} — dung tam {new_id}")
+        return new_id
+
     # ======================== Setup ========================
 
     def setup(self):
         """Initialize all hardware. Returns True if ready to run."""
         log("=== BeeGuard Jetson Nano ===")
-
-        # 0. Generate QR Code if not exists
-        self._generate_qr_code()
+        log(f"Device ID: {self.device_id}")
 
         # 1. Load AI model
         model_path = self._find_model()
@@ -105,7 +138,7 @@ class HeadlessTracker:
         return True
 
     def _find_model(self):
-        """Find model file: prefer .engine, then .onnx, then .pt."""
+        """Find model file: prefer .engine (TensorRT), then .onnx, then .pt."""
         model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
         for ext in [".engine", ".onnx", ".pt"]:
             for f in os.listdir(model_dir) if os.path.isdir(model_dir) else []:
@@ -350,111 +383,6 @@ class HeadlessTracker:
             args=(sensor_dict,),
             daemon=True,
         ).start()
-
-    def _generate_qr_code(self):
-        """Generate device ID QR code card if it doesn't already exist."""
-        try:
-            import qrcode
-            import json
-            from PIL import Image, ImageDraw, ImageFont
-            
-            qr_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr_codes")
-            if not os.path.exists(qr_dir):
-                os.makedirs(qr_dir)
-                
-            qr_path = os.path.join(qr_dir, f"{self.device_id}.png")
-            if not os.path.exists(qr_path):
-                device_name = os.environ.get("DEVICE_NAME", "Hornet Tracker Jetson")
-                
-                # 1. Card proportions 420x580 px
-                width, height = 420, 580
-                card_img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
-                draw = ImageDraw.Draw(card_img)
-                
-                # 2. Draw card background bo góc màu xám sáng
-                card_color = (240, 241, 243, 255)
-                draw.rounded_rectangle(
-                    [(0, 0), (width - 1, height - 1)],
-                    radius=30,
-                    fill=card_color
-                )
-                
-                # 3. Generate QR Code with JSON data
-                qr_data = json.dumps({
-                    "type": "beeguard_tracker",
-                    "device_id": self.device_id,
-                    "device_name": device_name
-                }, separators=(',', ':'), ensure_ascii=False)
-                
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_H,
-                    box_size=10,
-                    border=1,
-                )
-                qr.add_data(qr_data)
-                qr.make(fit=True)
-                
-                qr_pil = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-                qr_size = 250
-                try:
-                    resample_filter = Image.Resampling.LANCZOS
-                except AttributeError:
-                    resample_filter = Image.ANTIALIAS
-                qr_pil = qr_pil.resize((qr_size, qr_size), resample_filter)
-                
-                # Paste QR in the center horizontally
-                qr_x = (width - qr_size) // 2
-                qr_y = 45
-                card_img.paste(qr_pil, (qr_x, qr_y), qr_pil)
-                
-                # Helper to fetch font
-                def get_font(font_name, size, bold=False):
-                    paths = []
-                    if sys.platform == "win32":
-                        paths = [
-                            f"C:\\Windows\\Fonts\\{font_name}b.ttf" if bold else f"C:\\Windows\\Fonts\\{font_name}.ttf",
-                            "C:\\Windows\\Fonts\\arialbd.ttf" if bold else "C:\\Windows\\Fonts\\arial.ttf"
-                        ]
-                    else:
-                        paths = [
-                            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf" if bold else "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
-                        ]
-                    for path in paths:
-                        if os.path.exists(path):
-                            try:
-                                return ImageFont.truetype(path, size)
-                            except Exception:
-                                pass
-                    return ImageFont.load_default()
-                
-                # 4. Draw texts
-                font_family = "segoeui" if sys.platform == "win32" else "DejaVuSans"
-                title_font = get_font(font_family, 24, bold=True)
-                id_font = get_font(font_family, 18, bold=False)
-                sub_font = get_font(font_family, 15, bold=False)
-                footer_font = get_font(font_family, 13, bold=False)
-                
-                color_title = (15, 23, 42, 255)
-                color_muted = (71, 85, 105, 255)
-                color_light = (148, 163, 184, 255)
-                
-                def draw_centered_text(text, y, font, color):
-                    w = draw.textlength(text, font=font)
-                    x = (width - w) // 2
-                    draw.text((x, y), text, font=font, fill=color)
-                
-                draw_centered_text(device_name, 320, title_font, color_title)
-                draw_centered_text(self.device_id, 370, id_font, color_muted)
-                draw_centered_text("Thùng ong: 1", 415, sub_font, color_muted)
-                draw_centered_text("BeeGuard Tracking System", 465, footer_font, color_light)
-                
-                # Save
-                card_img.convert("RGB").save(qr_path, "PNG")
-                log(f"Generated complete QR card at {qr_path}")
-        except Exception as e:
-            log(f"Failed to generate QR card: {e}")
 
     # ======================== Shutdown ========================
 

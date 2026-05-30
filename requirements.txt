@@ -1,21 +1,19 @@
 # BeeGuard Jetson Nano — Dependencies
-# Cài trên Jetson Nano sau khi đã cài PyTorch + torchvision từ NVIDIA wheel.
+# Cài trên Jetson Nano sau khi đã cài pycuda (xem HUONG_DAN.md Bước 5).
 
 # Core
-# opencv-python>=4.1  # DÙNG OpenCV CỦA HỆ THỐNG JETSON (đã bật --system-site-packages)
-# numpy>=1.19         # DÙNG numpy CÓ SẴN TRÊN HỆ THỐNG JETSON (tránh pip tự compile từ source mất 1 tiếng)
-Pillow>=8.0
-pyserial>=3.5
+# opencv-python  ← DÙNG OpenCV CỦA HỆ THỐNG JETSON (đã bật --system-site-packages)
+# numpy          ← DÙNG numpy CÓ SẴN TRÊN HỆ THỐNG JETSON (tránh pip tự compile mất ~1 tiếng)
 
-# Deep Learning
-# torch        ← CÀI TỪ NVIDIA WHEEL, KHÔNG CÀI TỪ PIP
-# torchvision  ← BUILD TỪ SOURCE (xem HUONG_DAN.md)
-# ultralytics  ← DÙNG DUAL-MODE OpenCV DNN ONNX (Không cần cài trên Jetson Nano Python 3.6!)
+# AI Inference (TensorRT)
+# tensorrt       ← CÓ SẴN trên Jetson (JetPack 4.6), dùng qua venv --system-site-packages
+# pycuda         ← pip install pycuda (compile với CUDA 10.2, xem HUONG_DAN.md Bước 5.2)
+# Không cần torch / torchvision / ultralytics / onnxruntime trên Jetson — chỉ cần TensorRT + pycuda.
+
+# Hardware
+pyserial>=3.5
 
 # Firebase + remote control
 python-dotenv>=0.19
 requests>=2.25
 google-auth>=2.0
-
-# QR Code Generation (Cài phiên bản tương thích Python 3.6 - Bản 7.3.1 là bản cao nhất hỗ trợ Python 3.6)
-qrcode==7.3.1

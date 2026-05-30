@@ -102,8 +102,8 @@ Có 2 file không được push lên Git (chứa mật khẩu). Cần copy thủ
 
 1. Trên PC Windows, copy 2 file sau vào USB:
    ```
-   C:\Users\16toa\Downloads\tracking_v11\.env
-   C:\Users\16toa\Downloads\tracking_v11\service_account.json
+   D:\beeguard_jetson\.env
+   D:\beeguard_jetson\service_account.json
    ```
 
 2. Cắm USB vào Jetson Nano.
@@ -123,8 +123,8 @@ Có 2 file không được push lên Git (chứa mật khẩu). Cần copy thủ
 Trên PC Windows (PowerShell), chạy:
 ```powershell
 # Tìm IP Jetson (trên Jetson chạy: hostname -I)
-scp "C:\Users\16toa\Downloads\tracking_v11\.env" user@<IP_JETSON>:~/beeguard/
-scp "C:\Users\16toa\Downloads\tracking_v11\service_account.json" user@<IP_JETSON>:~/beeguard/
+scp "D:\beeguard_jetson\.env" user@<IP_JETSON>:~/beeguard/
+scp "D:\beeguard_jetson\service_account.json" user@<IP_JETSON>:~/beeguard/
 ```
 Thay `user` bằng username đã tạo ở Bước 1, thay `<IP_JETSON>` bằng IP thực tế.
 
@@ -138,6 +138,11 @@ Phải thấy cả 2 file.
 
 ## Bước 5: Cài môi trường Python
 
+> **Tại sao dùng TensorRT?**
+> TensorRT là engine tăng tốc của NVIDIA, **đã cài sẵn** trong JetPack 4.6 và chạy **nhanh nhất** trên Jetson Nano (FP16).
+> Ta không cài PyTorch / Ultralytics / ONNX Runtime (đều rườm rà hoặc không hợp Python 3.6).
+> Chỉ cần thêm **pycuda** để Python điều khiển bộ nhớ GPU. Model `.pt` được export sang `.onnx` trên máy Windows, rồi **build thành `.engine`** ngay trên Jetson (Bước 6).
+
 ### 5.1 Tạo virtual environment
 ```bash
 cd ~/beeguard
@@ -146,69 +151,66 @@ source venv/bin/activate
 pip install --upgrade pip
 ```
 
-### 5.2 Cài PyTorch cho Jetson Nano
-```bash
-# Cài đặt các thư viện toán học và OpenMPI (bắt buộc để load PyTorch)
-sudo apt update && sudo apt install -y libopenmpi-dev libopenblas-dev liblapack-dev libblas-dev
+> `--system-site-packages` để venv dùng được **OpenCV, numpy và TensorRT bản hệ thống** đã có sẵn trên Jetson (không cần build lại, tiết kiệm cả tiếng).
 
-# Tải PyTorch 1.10 (build sẵn cho JetPack 4.6)
-wget https://nvidia.box.com/shared/static/fjtbno0vpo676a25cgvuqc1wty0fkkg6.whl \
-     -O torch-1.10.0-cp36-cp36m-linux_aarch64.whl
-pip install torch-1.10.0-cp36-cp36m-linux_aarch64.whl
+### 5.2 Cài pycuda
+```bash
+# Cần CUDA trong PATH để pycuda compile được
+echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+
+sudo apt update && sudo apt install -y python3-dev build-essential
+
+# pycuda 2020.1 tương thích Python 3.6 (mất ~5 phút để compile)
+pip install pycuda==2020.1
 ```
 
-### 5.3 Cài torchvision từ source
+### 5.3 Kiểm tra TensorRT + pycuda
 ```bash
-# Cài đặt Pillow 8.4.0 (bản cuối cùng tương thích Python 3.6 của Jetson) để tránh lỗi cú pháp Pillow mới
-pip install Pillow==8.4.0
-
-sudo apt install -y libjpeg-dev zlib1g-dev libpython3-dev \
-     libavcodec-dev libavformat-dev libswscale-dev
-git clone --branch v0.11.1 https://github.com/pytorch/vision torchvision
-cd torchvision
-python3 setup.py install
-cd ~/beeguard
+python3 -c "import tensorrt as trt; print('TensorRT:', trt.__version__)"
+python3 -c "import pycuda.autoinit, pycuda.driver as cuda; print('pycuda OK, GPU:', cuda.Device(0).name())"
 ```
+Phải in ra phiên bản TensorRT (vd `8.0.x` / `8.2.x`) và tên GPU (`NVIDIA Tegra X1`).
 
-### 5.4 Kiểm tra PyTorch + CUDA
+### 5.4 Cài các thư viện còn lại
 ```bash
-python3 -c "import torch; import torchvision; print('PyTorch:', torch.__version__, '| Torchvision:', torchvision.__version__, '| CUDA:', torch.cuda.is_available())"
-```
-Kết quả phải là: `PyTorch: 1.10.0 | Torchvision: 0.11.0... | CUDA: True`
-
-### 5.5 Cài các thư viện còn lại
-```bash
-# Cài đặt các thư viện còn lại (opencv-python đã được tắt trong requirements.txt để dùng bản OpenCV tăng tốc phần cứng có sẵn của Jetson)
 pip install -r requirements.txt
 ```
 
 ---
 
-## Bước 6: Export model sang ONNX trên máy tính và chép sang Jetson
+## Bước 6: Chuẩn bị model TensorRT (.engine)
 
-> Vì Jetson Nano chạy Python 3.6 không hỗ trợ bộ cài `ultralytics`, chúng ta sẽ export model sang file `.onnx` trên **máy tính Windows** và chép sang Jetson để chạy bằng OpenCV DNN cực mượt!
+> Quy trình: export `.pt → .onnx` trên **máy Windows** → chép `.onnx` sang Jetson → **build `.onnx → .engine`** trên **chính Jetson** bằng `trtexec`.
+> File `.engine` **phụ thuộc thiết bị + phiên bản TensorRT**, nên **bắt buộc build trên Jetson**, không copy từ máy khác sang được.
 
-### 6.1 Thực hiện export trên máy tính Windows (PowerShell)
-Mở PowerShell trên máy tính Windows và chạy:
+### 6.1 Export `.pt` → `.onnx` trên máy Windows (PowerShell)
+Trên máy Windows (đã cài `ultralytics`):
 ```powershell
-yolo export model="C:\Users\16toa\Downloads\tracking_v11\model\best.pt" format=onnx imgsz=320 opset=11 simplify=False
+yolo export model="D:\beeguard_jetson\model\best.pt" format=onnx imgsz=320 opset=11 simplify=False
 ```
-Sau khi chạy xong, bạn sẽ thấy file: `C:\Users\16toa\Downloads\tracking_v11\model\best.onnx`.
+→ tạo `D:\beeguard_jetson\model\best.onnx`.
 
-### 6.2 Chép file `best.onnx` sang Jetson Nano
-Sử dụng SCP hoặc USB để chép file `best.onnx` vào thư mục `~/beeguard/model/` trên Jetson.
+> `imgsz=320` nên khớp `inference_size` trong `detection_engine.py`. (Không bắt buộc khớp tay: khi load engine, code tự đọc kích thước từ engine.)
 
-Ví dụ dùng SCP (chạy trên PowerShell máy tính Windows):
+### 6.2 Chép `best.onnx` sang Jetson
 ```powershell
-scp "C:\Users\16toa\Downloads\tracking_v11\model\best.onnx" viettoan@<IP_JETSON>:~/beeguard/model/
+scp "D:\beeguard_jetson\model\best.onnx" viettoan@<IP_JETSON>:~/beeguard/model/
 ```
-Thay `<IP_JETSON>` bằng IP thực tế của Jetson Nano.
 
-### 6.3 Kiểm tra trên Jetson
+### 6.3 Build `.engine` trên Jetson (chạy trên Jetson)
 ```bash
-ls -la ~/beeguard/model/
+cd ~/beeguard
+/usr/src/tensorrt/bin/trtexec --onnx=model/best.onnx --saveEngine=model/best.engine --fp16 --workspace=2048
 ```
-Phải thấy file `best.onnx`.
+> Quá trình này mất **5–15 phút** (bình thường). Xong sẽ thấy `&&&& PASSED`.
+
+### 6.4 Kiểm tra
+```bash
+ls -lh ~/beeguard/model/best.engine
+```
+Phải thấy file `best.engine` (vài MB).
 
 ---
 
@@ -223,14 +225,19 @@ python3 main.py
 Kết quả kỳ vọng:
 ```
 [HH:MM:SS] === BeeGuard Jetson Nano ===
-[HH:MM:SS] Loading model: best.onnx
-[HH:MM:SS] Model: Loaded best.onnx on OpenCV DNN (CUDA)
+[HH:MM:SS] Device ID: TRK-XXXXXXXX
+[HH:MM:SS] Loading model: best.engine
+[HH:MM:SS] Model: Loaded best.engine on TensorRT (FP16, 320px)
 [HH:MM:SS] Camera opened: 640x480
 [HH:MM:SS] ESP32: connected to /dev/ttyUSB0
 [HH:MM:SS] Tracking auto-enabled
 [HH:MM:SS] Main loop started
-[HH:MM:SS] FPS: 25.3 | Infer: 38ms | Objects: 0
+[HH:MM:SS] FPS: 25.0 | Infer: 35ms | Objects: 0
 ```
+
+> - Dòng `Device ID:` là ID **tự sinh** cho máy này (lưu ở `device_id.txt`) — đây là ID sẽ hiện trên web để tạo QR.
+> - FPS thực tế trên Jetson Nano ở 320px (TensorRT FP16) khoảng **20–30 FPS**.
+> - Nếu báo `TensorRT ... chua cai` → pycuda chưa cài đúng (quay lại **Bước 5.2/5.3**). Nếu không thấy `best.engine` → chưa build (Bước 6.3).
 
 Bấm `Ctrl+C` để dừng.
 
@@ -330,8 +337,8 @@ ls /dev/ttyUSB*
 
 ```
 beeguard/
-├── main.py                 # Vòng lặp chính (headless)
-├── detection_engine.py     # YOLO inference (TensorRT)
+├── main.py                 # Vòng lặp chính (headless) + tự sinh device_id
+├── detection_engine.py     # YOLO inference (TensorRT / Ultralytics / ONNX / OpenCV)
 ├── tracking_engine.py      # Pixel → Servo angle
 ├── servo_controller.py     # Serial protocol ESP32
 ├── firebase_alert.py       # SOS alert + sensor push
@@ -339,8 +346,10 @@ beeguard/
 ├── .env.example            # Mẫu .env
 ├── service_account.json    # Firebase credentials (BÍ MẬT)
 ├── requirements.txt        # Thư viện Python
+├── device_id.txt           # ID tự sinh cho máy này (KHÔNG push Git)
 ├── model/
 │   ├── best.pt             # Model gốc (push lên Git)
-│   └── best.engine         # TensorRT (export trên Jetson, KHÔNG push Git)
+│   ├── best.onnx           # Export từ PC (KHÔNG push Git) — dùng để build engine
+│   └── best.engine         # Build bằng trtexec TRÊN Jetson (KHÔNG push Git)
 └── .gitignore
 ```

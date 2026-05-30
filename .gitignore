@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 venv/
 model/*.engine
+model/*.onnx
+device_id.txt
 .claude/
-qr_codes/
