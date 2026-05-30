@@ -59,6 +59,8 @@ class HeadlessTracker:
 
         self._last_heartbeat = 0.0
         self._last_state_push = 0.0
+        self._last_sensor_push = 0.0
+        self.sensor_push_interval = 5.0  # giây — chỉ đẩy cảm biến lên Firebase mỗi 5s
 
         # Sensor callback: ESP32 → Serial → Firebase
         self.servo.on_sensor_data = self._on_sensor_data
@@ -374,7 +376,17 @@ class HeadlessTracker:
         log(f"Params updated: {payload}")
 
     def _on_sensor_data(self, sensor_dict):
-        """Callback: ESP32 sensor data → Firebase."""
+        """Callback: ESP32 sensor data → Firebase.
+
+        ESP32 gửi cảm biến rất dày (mấy chục lần/giây) nên ta THROTTLE: chỉ log +
+        đẩy lên Firebase mỗi `sensor_push_interval` giây để tránh spam Firebase/console.
+        Việc đọc serial vẫn diễn ra liên tục (giữ buffer sạch), chỉ giới hạn khâu đẩy.
+        """
+        now = time.time()
+        if now - self._last_sensor_push < self.sensor_push_interval:
+            return
+        self._last_sensor_push = now
+
         t = sensor_dict.get('temperature')
         h = sensor_dict.get('humidity')
         d = sensor_dict.get('water_distance_cm')
