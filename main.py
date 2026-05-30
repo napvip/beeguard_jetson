@@ -233,7 +233,9 @@ class HeadlessTracker:
                     tracking_det = (cx, cy, x2 - x1, y2 - y1)
 
                 pan, tilt, active = self.tracker.update(tracking_det)
-                if self.servo.connected:
+                # Chỉ gửi góc khi ĐANG bám mục tiêu thật — tránh spam serial mỗi khung
+                # hình làm nghẽn cổng ESP32 (khiến cảm biến không đọc được + servo trễ).
+                if self.servo.connected and active:
                     self.servo.send_angles(pan, tilt)
 
             # FPS counter
