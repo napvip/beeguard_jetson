@@ -444,41 +444,57 @@ class DetectionEngine:
         else:
             has_obj = num_feat >= 6   # best-effort khi nc không khớp class_names
 
-        boxes, confidences, class_ids = [], [], []
-        for pred in arr:
-            if has_obj:
-                obj = float(pred[4])
-                scores = pred[5:]
-                cls_id = int(np.argmax(scores))
-                conf = obj * float(scores[cls_id])
-            else:
-                scores = pred[4:]
-                cls_id = int(np.argmax(scores))
-                conf = float(scores[cls_id])
-            if conf < self.confidence:
-                continue
-            xc, yc, w, h = pred[0], pred[1], pred[2], pred[3]
-            x = int((xc - w / 2) * x_factor)
-            y = int((yc - h / 2) * y_factor)
-            boxes.append([x, y, int(w * x_factor), int(h * y_factor)])
-            confidences.append(conf)
-            class_ids.append(cls_id)
+        # ===== Vector hóa bằng numpy (thay vòng for duyệt từng box) =====
+        # Vòng for Python duyệt toàn bộ ~N box mỗi frame (vd ~2100 ở 320px) là nút
+        # thắt CPU lớn nhất trên Jetson Nano và chạy NGOÀI đồng hồ đo inference.
+        # numpy hoá → từ hàng nghìn vòng lặp Python còn vài phép toán mảng.
+        arr = arr.astype(np.float32, copy=False)
+        if has_obj:
+            obj = arr[:, 4]
+            cls_scores = arr[:, 5:]
+        else:
+            obj = None
+            cls_scores = arr[:, 4:]
+
+        if cls_scores.shape[1] == 0:
+            return []
+
+        class_ids_all = np.argmax(cls_scores, axis=1)
+        top_scores = cls_scores[np.arange(cls_scores.shape[0]), class_ids_all]
+        confs_all = top_scores if obj is None else obj * top_scores
+
+        keep = confs_all >= self.confidence
+        if not np.any(keep):
+            return []
+
+        m = arr[keep]
+        confs_k = confs_all[keep]
+        cls_k = class_ids_all[keep]
+
+        xc = m[:, 0]; yc = m[:, 1]; ww = m[:, 2]; hh = m[:, 3]
+        xs = ((xc - ww / 2.0) * x_factor).astype(np.int32)
+        ys = ((yc - hh / 2.0) * y_factor).astype(np.int32)
+        ws = (ww * x_factor).astype(np.int32)
+        hs = (hh * y_factor).astype(np.int32)
+
+        boxes = np.stack([xs, ys, ws, hs], axis=1).tolist()
+        confidences = confs_k.astype(np.float32).tolist()
+        class_ids = cls_k.tolist()
 
         detections = []
-        if boxes:
-            indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence, self.iou_threshold)
-            if len(indices) > 0:
-                for i in np.array(indices).flatten():
-                    x, y, w, h = boxes[i]
-                    cls_id = class_ids[i]
-                    cls_name = self.class_names[cls_id] if cls_id < len(self.class_names) \
-                        else "class_{}".format(cls_id)
-                    cx = x + w / 2
-                    cy = y + h / 2
-                    detections.append((
-                        int(x), int(y), int(x + w), int(y + h),
-                        confidences[i], cls_name, cx, cy
-                    ))
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, self.confidence, self.iou_threshold)
+        if len(indices) > 0:
+            for i in np.array(indices).flatten():
+                x, y, w, h = boxes[i]
+                cls_id = class_ids[i]
+                cls_name = self.class_names[cls_id] if cls_id < len(self.class_names) \
+                    else "class_{}".format(cls_id)
+                cx = x + w / 2.0
+                cy = y + h / 2.0
+                detections.append((
+                    int(x), int(y), int(x + w), int(y + h),
+                    float(confidences[i]), cls_name, cx, cy
+                ))
         return detections
 
     def _track_time(self, t_start, t_end):

@@ -15,6 +15,7 @@ import time
 import uuid
 import signal
 import threading
+from collections import deque
 import cv2
 
 try:
@@ -61,6 +62,17 @@ class HeadlessTracker:
         self._last_state_push = 0.0
         self._last_sensor_push = 0.0
         self.sensor_push_interval = 5.0  # giây — chỉ đẩy cảm biến lên Firebase mỗi 5s
+
+        # ===== Kích bơm theo "có ong hiện diện" (chịu được nhận diện chập chờn) =====
+        # Coi là CÓ ONG khi detect được >= presence_min_hits lần trong cửa sổ
+        # presence_window giây gần nhất. Vài frame miss ở giữa KHÔNG reset → bơm kích
+        # ngay khi xác nhận, không cần các frame liên tiếp (hợp với FPS thấp + detect lúc được lúc mất).
+        self._det_times = deque()
+        self.presence_window = 1.0      # giây — đủ rộng để 2 lần detect cùng tồn tại khi FPS tụt
+        self.presence_min_hits = 2      # số lần detect tối thiểu trong cửa sổ (1 = bắn ngay frame đầu)
+        # Throttle khâu gửi cảnh báo + encode JPEG (nặng) cho khớp cooldown alert.
+        self._last_alert_ts = 0.0
+        self.alert_interval = 10.0      # giây (khớp FirebaseAlertSender.ALERT_COOLDOWN)
 
         # Sensor callback: ESP32 → Serial → Firebase
         self.servo.on_sensor_data = self._on_sensor_data
@@ -210,21 +222,35 @@ class HeadlessTracker:
             if self.detector.model_loaded:
                 detections = self.detector.detect(frame)
 
-            # SOS alert + pump when hornets detected
+            now = time.time()
+
+            # ===== "Hiện diện ong" theo cửa sổ thời gian (chịu được detect chập chờn) =====
             if detections:
+                self._det_times.append(now)
+            while self._det_times and now - self._det_times[0] > self.presence_window:
+                self._det_times.popleft()
+            hornet_present = len(self._det_times) >= self.presence_min_hits
+
+            # Kích bơm khi xác nhận có ong. send_pump_fire tự throttle (~10s) và ESP32
+            # tự enforce cooldown → gọi mỗi frame vô hại, không cần frame liên tiếp.
+            if hornet_present and self.servo.connected:
+                self.servo.send_pump_fire()
+
+            # SOS alert + ảnh detection — CHỈ làm việc nặng (copy + vẽ + JPEG + thread)
+            # mỗi alert_interval giây (khớp cooldown Firebase), tránh encode rồi vứt mỗi frame.
+            if detections and (now - self._last_alert_ts >= self.alert_interval):
+                self._last_alert_ts = now
                 avg_conf = sum(d[4] for d in detections) / len(detections)
                 annotated = self.detector.draw_detections(frame.copy(), detections)
-                _, jpeg_buf = cv2.imencode('.jpg', annotated,
+                ok_enc, jpeg_buf = cv2.imencode('.jpg', annotated,
                     [cv2.IMWRITE_JPEG_QUALITY, 85])
-                jpeg_bytes = bytes(jpeg_buf)
+                jpeg_bytes = bytes(jpeg_buf) if ok_enc else None
                 threading.Thread(
                     target=self.alert_sender.send_hornet_alert,
                     args=(len(detections), avg_conf),
                     kwargs={"image_bytes": jpeg_bytes},
                     daemon=True,
                 ).start()
-                if self.servo.connected:
-                    self.servo.send_pump_fire()
 
             # Tracking
             if self.tracking_active:
@@ -242,7 +268,6 @@ class HeadlessTracker:
 
             # FPS counter
             fps_count += 1
-            now = time.time()
             if now - fps_time >= 5.0:
                 fps = fps_count / (now - fps_time)
                 fps_count = 0
@@ -259,8 +284,6 @@ class HeadlessTracker:
                     daemon=True,
                 ).start()
                 self._last_heartbeat = now
-
-            time.sleep(0.005)
 
     # ======================== Firebase Remote Control ========================
 
