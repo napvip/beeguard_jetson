@@ -234,7 +234,9 @@ class HeadlessTracker:
             # Kích bơm khi xác nhận có ong. send_pump_fire tự throttle (~10s) và ESP32
             # tự enforce cooldown → gọi mỗi frame vô hại, không cần frame liên tiếp.
             if hornet_present and self.servo.connected:
-                self.servo.send_pump_fire()
+                if self.servo.send_pump_fire():
+                    log("PUMP: FIRE (co ong: {} hit/{:.1f}s)".format(
+                        len(self._det_times), self.presence_window))
 
             # SOS alert + ảnh detection — CHỈ làm việc nặng (copy + vẽ + JPEG + thread)
             # mỗi alert_interval giây (khớp cooldown Firebase), tránh encode rồi vứt mỗi frame.
