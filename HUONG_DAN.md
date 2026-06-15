@@ -188,11 +188,11 @@ pip install -r requirements.txt
 ### 6.1 Export `.pt` → `.onnx` trên máy Windows (PowerShell)
 Trên máy Windows (đã cài `ultralytics`):
 ```powershell
-yolo export model="D:\beeguard_jetson\model\best.pt" format=onnx imgsz=320 opset=11 simplify=False
+yolo export model="D:\beeguard_jetson\model\best.pt" format=onnx imgsz=416 opset=11 simplify=False
 ```
 → tạo `D:\beeguard_jetson\model\best.onnx`.
 
-> `imgsz=320` nên khớp `inference_size` trong `detection_engine.py`. (Không bắt buộc khớp tay: khi load engine, code tự đọc kích thước từ engine.)
+> `imgsz=416` khớp kích thước lúc train. (Không bắt buộc khớp tay: khi load engine, code tự đọc kích thước từ engine.)
 
 ### 6.2 Chép `best.onnx` sang Jetson
 ```powershell
@@ -227,7 +227,7 @@ Kết quả kỳ vọng:
 [HH:MM:SS] === BeeGuard Jetson Nano ===
 [HH:MM:SS] Device ID: TRK-XXXXXXXX
 [HH:MM:SS] Loading model: best.engine
-[HH:MM:SS] Model: Loaded best.engine on TensorRT (FP16, 320px)
+[HH:MM:SS] Model: Loaded best.engine on TensorRT (FP16, 416px)
 [HH:MM:SS] Camera opened: 640x480
 [HH:MM:SS] ESP32: connected to /dev/ttyUSB0
 [HH:MM:SS] Tracking auto-enabled
@@ -236,7 +236,7 @@ Kết quả kỳ vọng:
 ```
 
 > - Dòng `Device ID:` là ID **tự sinh** cho máy này (lưu ở `device_id.txt`) — đây là ID sẽ hiện trên web để tạo QR.
-> - FPS thực tế trên Jetson Nano ở 320px (TensorRT FP16) khoảng **20–30 FPS**.
+> - FPS thực tế trên Jetson Nano ở 416px (TensorRT FP16) khoảng **12–18 FPS**.
 > - Nếu báo `TensorRT ... chua cai` → pycuda chưa cài đúng (quay lại **Bước 5.2/5.3**). Nếu không thấy `best.engine` → chưa build (Bước 6.3).
 
 Bấm `Ctrl+C` để dừng.

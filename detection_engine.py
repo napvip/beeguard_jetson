@@ -64,7 +64,7 @@ class DetectionEngine:
         self._trt_bindings = []
 
         # Inference settings (optimized for Jetson Nano 4GB)
-        self.inference_size = 320
+        self.inference_size = 416
         self.augment = False
         self.max_det = 20
         self.half = True            # FP16

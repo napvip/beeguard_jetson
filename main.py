@@ -6,7 +6,7 @@ Designed for Jetson Nano: auto-start via systemd, control via Firebase app.
 
 Camera: Logitech C310 USB (OpenCV V4L2)
 ESP32: USB Serial (auto-detect /dev/ttyUSB*)
-Model: ONNX Runtime (CUDA, .onnx, 320px) — chạy được trên Python 3.6 của Jetson
+Model: ONNX Runtime (CUDA, .onnx, 416px) — chạy được trên Python 3.6 của Jetson
 """
 
 import os

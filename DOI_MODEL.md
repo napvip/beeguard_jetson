@@ -8,7 +8,7 @@
 
 ### 1. Export `.pt` → `.onnx` trên máy Windows
 ```powershell
-yolo export model="D:\beeguard_jetson\model\yolov11n.pt" format=onnx imgsz=320 opset=11 simplify=False
+yolo export model="D:\beeguard_jetson\model\yolov11n.pt" format=onnx imgsz=416 opset=11 simplify=False
 ```
 → tạo `yolov11n.onnx`.
 
@@ -64,4 +64,4 @@ journalctl -u beeguard -f          # phải thấy "Loaded best.engine on Tensor
 | 416 | 12-18 | Cân bằng | ~2.0 GB |
 | 640 | 5-9  | Tốt nhất, ong xa | ~2.8 GB |
 
-Khuyến nghị: dùng **320** cho tốc độ, **416** nếu cần nhận diện ong ở xa hơn.
+Khuyến nghị: dùng **416** để khớp kích thước lúc train (cân bằng tốc độ/độ chính xác). Hạ về **320** nếu cần thêm FPS.
