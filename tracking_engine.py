@@ -18,10 +18,10 @@ Coordinate system (looking AT the wall from behind):
   - Z: depth, towards wall
 
 Servo HOME position (laser perpendicular to wall):
-  - Pan  (shoulder, D26): HOME = 95°
-    - < 95° = turn left, > 95° = turn right
-  - Tilt (elbow, D25):   HOME = 125°
-    - < 125° = tilt up,  > 125° = tilt down
+  - Pan  (shoulder, D26): HOME = 90°
+    - < 90° = turn left, > 90° = turn right
+  - Tilt (elbow, D25):   HOME = 90°
+    - < 90° = tilt up,  > 90° = tilt down
 """
 
 import math
@@ -88,8 +88,8 @@ class TrackingEngine:
       4. Fast exponential moving average (EMA) smoothing with dead-zone
 
     Servo HOME (laser perpendicular to wall):
-      - Pan  = 95°  (shoulder servo, D26)
-      - Tilt = 125° (elbow servo, D25)
+      - Pan  = 90°  (shoulder servo, D26)
+      - Tilt = 90°  (elbow servo, D25)
     """
 
     # ========== Hardware Constants (cm) ==========
@@ -109,8 +109,8 @@ class TrackingEngine:
     CAM_LASER_V_OFFSET = 0.0
 
     # ========== Servo HOME angles (laser perpendicular to wall) ==========
-    PAN_HOME  = 95.0    # Shoulder servo home angle
-    TILT_HOME = 125.0   # Elbow servo home angle
+    PAN_HOME  = 90.0    # Shoulder servo home angle
+    TILT_HOME = 90.0    # Elbow servo home angle
 
     def __init__(self):
         # PID controllers for pan and tilt (operate on degree error)
