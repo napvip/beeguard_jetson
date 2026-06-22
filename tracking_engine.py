@@ -106,7 +106,7 @@ class TrackingEngine:
 
         # Bù cố định do thay servo mới (servo cũ HOME=125°, servo mới HOME=90°)
         # Giá trị này KHÔNG chỉnh từ app — chỉ sửa ở đây khi thay servo.
-        self.tilt_servo_offset = -35.0
+        self.tilt_servo_offset = -25.0
 
         # Direction multipliers (1 or -1) — adjust if servo moves backwards
         # Default: 1 (PID error = desired - current, applied directly)
