@@ -100,9 +100,8 @@ class TrackingEngine:
         # How many frames to wait before declaring target truly gone
         self.target_lost_patience = 5  # ~0.17s at 30fps
 
-        # Calibration fine-tune offsets (adjustable via app ±15°)
-        self.cal_pan_offset  = 8.0   # degrees (calibrated from real testing)
-        self.cal_tilt_offset = -8.0  # degrees (calibrated from real testing)
+        self.cal_pan_offset  = 9.0   # degrees (calibrated from real testing)
+        self.cal_tilt_offset = 12.0  # degrees (calibrated from real testing)
 
         # Bù cố định do thay servo mới (servo cũ HOME=125°, servo mới HOME=90°)
         # Giá trị này KHÔNG chỉnh từ app — chỉ sửa ở đây khi thay servo.
