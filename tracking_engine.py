@@ -25,56 +25,6 @@ Servo HOME position (laser perpendicular to wall):
 """
 
 import math
-import time
-
-
-class PIDController:
-    """PID controller for one axis, operating on angle error (degrees)."""
-
-    def __init__(self, kp=0.35, ki=0.01, kd=0.20, output_limit=5.0):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.output_limit = output_limit
-
-        self.prev_error = 0.0
-        self.integral = 0.0
-        self.last_time = time.time()
-
-    def reset(self):
-        self.prev_error = 0.0
-        self.integral = 0.0
-        self.last_time = time.time()
-
-    def update(self, error):
-        """
-        Compute PID output given angle error in degrees.
-        Returns adjustment in degrees.
-        """
-        now = time.time()
-        dt = now - self.last_time
-        if dt <= 0.001:
-            dt = 0.01
-        self.last_time = now
-
-        # Proportional
-        p = self.kp * error
-
-        # Integral with anti-windup
-        self.integral += error * dt
-        max_integral = self.output_limit * 3
-        self.integral = max(-max_integral, min(max_integral, self.integral))
-        i = self.ki * self.integral
-
-        # Derivative (with low-pass filter effect via dt)
-        derivative = (error - self.prev_error) / dt
-        d = self.kd * derivative
-        self.prev_error = error
-
-        # Combined output with clamping
-        output = p + i + d
-        output = max(-self.output_limit, min(self.output_limit, output))
-        return output
 
 
 class TrackingEngine:
@@ -113,10 +63,6 @@ class TrackingEngine:
     TILT_HOME = 90.0    # Elbow servo home angle
 
     def __init__(self):
-        # PID controllers for pan and tilt (operate on degree error)
-        self.pid_pan  = PIDController(kp=0.35, ki=0.01, kd=0.20, output_limit=5.0)
-        self.pid_tilt = PIDController(kp=0.35, ki=0.01, kd=0.20, output_limit=5.0)
-
         # Current servo angles (start at home)
         self.pan_angle  = self.PAN_HOME
         self.tilt_angle = self.TILT_HOME
@@ -154,9 +100,13 @@ class TrackingEngine:
         # How many frames to wait before declaring target truly gone
         self.target_lost_patience = 5  # ~0.17s at 30fps
 
-        # Calibration fine-tune offsets (adjustable via GUI)
+        # Calibration fine-tune offsets (adjustable via app ±15°)
         self.cal_pan_offset  = 8.0   # degrees (calibrated from real testing)
         self.cal_tilt_offset = -8.0  # degrees (calibrated from real testing)
+
+        # Bù cố định do thay servo mới (servo cũ HOME=125°, servo mới HOME=90°)
+        # Giá trị này KHÔNG chỉnh từ app — chỉ sửa ở đây khi thay servo.
+        self.tilt_servo_offset = -35.0
 
         # Direction multipliers (1 or -1) — adjust if servo moves backwards
         # Default: 1 (PID error = desired - current, applied directly)
@@ -170,26 +120,12 @@ class TrackingEngine:
         self.frame_w = w
         self.frame_h = h
 
-    def set_pid_gains(self, kp=None, ki=None, kd=None):
-        """Update PID gains for both axes."""
-        if kp is not None:
-            self.pid_pan.kp  = kp
-            self.pid_tilt.kp = kp
-        if ki is not None:
-            self.pid_pan.ki  = ki
-            self.pid_tilt.ki = ki
-        if kd is not None:
-            self.pid_pan.kd  = kd
-            self.pid_tilt.kd = kd
-
     def set_smooth_factor(self, factor):
         """Set smoothing factor (0.1 = very smooth, 1.0 = instant)."""
         self.smooth_factor = max(0.1, min(1.0, factor))
 
     def reset(self):
-        """Reset to home position (Pan=95°, Tilt=125°)."""
-        self.pid_pan.reset()
-        self.pid_tilt.reset()
+        """Reset to home position (Pan=90°, Tilt=90°)."""
         self.pan_angle     = self.PAN_HOME
         self.tilt_angle    = self.TILT_HOME
         self.smoothed_pan  = self.PAN_HOME
@@ -331,8 +267,8 @@ class TrackingEngine:
         desired servo angles using trigonometry.
 
         Home position (laser straight at wall):
-          Pan  = 95° (shoulder), offset from center
-          Tilt = 125° (elbow), offset from center
+          Pan  = 90° (shoulder), offset from center
+          Tilt = 90° (elbow), offset from center
 
         When target is to the right (tx > 0), pan angle decreases (inverted for servo).
         When target is above (ty > 0), tilt angle increases (inverted for servo).
@@ -380,7 +316,7 @@ class TrackingEngine:
 
         # === Step 4: Apply calibration offsets ===
         desired_pan  += self.cal_pan_offset
-        desired_tilt += self.cal_tilt_offset
+        desired_tilt += self.tilt_servo_offset + self.cal_tilt_offset
 
         # Clamp desired to servo limits
         desired_pan  = max(self.pan_min, min(self.pan_max, desired_pan))
@@ -432,6 +368,4 @@ class TrackingEngine:
             "raw_pan": self.pan_angle,
             "raw_tilt": self.tilt_angle,
             "lost_frames": self.frames_without_target,
-            "pid_pan_p": self.pid_pan.prev_error,
-            "pid_tilt_p": self.pid_tilt.prev_error,
         }
