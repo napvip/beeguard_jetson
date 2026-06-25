@@ -52,7 +52,7 @@ class DetectionEngine:
         self.confidence = 0.5
         self.iou_threshold = 0.45
         self.model_loaded = False
-        self.class_names = ["ongbapcay"]
+        self.class_names = ["ong_mat", "ong_bap_cay"]
         self.engine_type = "none"  # "tensorrt", "ultralytics", "onnxruntime", "opencv_dnn"
 
         # TensorRT runtime objects (chỉ dùng khi engine_type == "tensorrt")
@@ -509,7 +509,11 @@ class DetectionEngine:
         """Draw detection boxes and labels on frame."""
         for det in detections:
             x1, y1, x2, y2, conf, cls_name, cx, cy = det
-            color = (0, 255, 100)  # green
+            # Ong bắp cày = đỏ (nguy hiểm), Ong mật = xanh lá (an toàn)
+            if cls_name == "ong_bap_cay":
+                color = (0, 0, 255)    # red (BGR)
+            else:
+                color = (0, 255, 100)  # green (BGR)
             thickness = 2
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)

@@ -224,8 +224,11 @@ class HeadlessTracker:
 
             now = time.time()
 
+            # === Lọc chỉ ong bắp cày cho bơm / cảnh báo / tracking ===
+            hornet_detections = [d for d in detections if d[5] == "ong_bap_cay"]
+
             # ===== "Hiện diện ong" theo cửa sổ thời gian (chịu được detect chập chờn) =====
-            if detections:
+            if hornet_detections:
                 self._det_times.append(now)
             while self._det_times and now - self._det_times[0] > self.presence_window:
                 self._det_times.popleft()
@@ -240,23 +243,23 @@ class HeadlessTracker:
 
             # SOS alert + ảnh detection — CHỈ làm việc nặng (copy + vẽ + JPEG + thread)
             # mỗi alert_interval giây (khớp cooldown Firebase), tránh encode rồi vứt mỗi frame.
-            if detections and (now - self._last_alert_ts >= self.alert_interval):
+            if hornet_detections and (now - self._last_alert_ts >= self.alert_interval):
                 self._last_alert_ts = now
-                avg_conf = sum(d[4] for d in detections) / len(detections)
+                avg_conf = sum(d[4] for d in hornet_detections) / len(hornet_detections)
                 annotated = self.detector.draw_detections(frame.copy(), detections)
                 ok_enc, jpeg_buf = cv2.imencode('.jpg', annotated,
                     [cv2.IMWRITE_JPEG_QUALITY, 85])
                 jpeg_bytes = bytes(jpeg_buf) if ok_enc else None
                 threading.Thread(
                     target=self.alert_sender.send_hornet_alert,
-                    args=(len(detections), avg_conf),
+                    args=(len(hornet_detections), avg_conf),
                     kwargs={"image_bytes": jpeg_bytes},
                     daemon=True,
                 ).start()
 
             # Tracking
             if self.tracking_active:
-                selected = self.tracker.select_target(detections)
+                selected = self.tracker.select_target(hornet_detections)
                 tracking_det = None
                 if selected is not None:
                     x1, y1, x2, y2, conf, cls, cx, cy = selected
